@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/portal.css">
+  <style>
+    :root {
+      --bg-color: <%= settings.backgroundColor %>;
+      --accent-color: <%= settings.accentColor %>;
+    }
+  </style>
+</head>
+<body class="portal-page" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/images/background.jpg') center/cover no-repeat fixed; background-color: var(--bg-color);">
+  <div class="portal-container">
+    <div class="portal-card">
+      <% if (settings.logoUrl) { %>
+        <img src="<%= settings.logoUrl %>" alt="Logo" class="portal-logo">
+      <% } %>
+      
+      <h1><%= settings.welcomeHeading %></h1>
+      <p class="welcome-text"><%= settings.welcomeBody %></p>
+      
+      <% if (error) { %>
+        <div class="alert alert-error">
+          <%= error %>
+        </div>
+      <% } %>
+      
+      <form method="POST" action="/portal/login" class="login-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        
+        <% if (authMethods.password || authMethods.voucher) { %>
+          <div class="auth-tabs">
+            <% if (authMethods.password) { %>
+              <label class="auth-tab">
+                <input type="radio" name="authMethod" value="password" checked>
+                <span>Password</span>
+              </label>
+            <% } %>
+            <% if (authMethods.voucher) { %>
+              <label class="auth-tab">
+                <input type="radio" name="authMethod" value="voucher" <%= !authMethods.password ? 'checked' : '' %>>
+                <span>Voucher</span>
+              </label>
+            <% } %>
+            <% if (authMethods.clickThrough) { %>
+              <label class="auth-tab">
+                <input type="radio" name="authMethod" value="click-through" <%= !authMethods.password && !authMethods.voucher ? 'checked' : '' %>>
+                <span>Guest</span>
+              </label>
+            <% } %>
+          </div>
+        <% } %>
+        
+        <% if (authMethods.password) { %>
+          <div class="form-group auth-field" data-method="password">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter WiFi password" autocomplete="off">
+          </div>
+        <% } %>
+        
+        <% if (authMethods.voucher) { %>
+          <div class="form-group auth-field" data-method="voucher" style="display: none;">
+            <label for="voucherCode">Voucher Code</label>
+            <input type="text" id="voucherCode" name="voucherCode" placeholder="Enter your voucher code" autocomplete="off" style="text-transform: uppercase;">
+          </div>
+        <% } %>
+        
+        <% if (authMethods.clickThrough) { %>
+          <div class="auth-field" data-method="click-through" style="display: none;">
+            <p class="guest-info">Click connect to access the internet as a guest.</p>
+          </div>
+        <% } %>
+        
+        <% if (settings.termsRequired) { %>
+          <div class="form-group checkbox-group">
+            <label>
+              <input type="checkbox" name="acceptTerms" value="true" required>
+              <span>I accept the <a href="#terms" class="terms-link">terms of service</a></span>
+            </label>
+          </div>
+        <% } %>
+        
+        <button type="submit" class="btn btn-primary" style="background-color: var(--accent-color);">
+          Connect
+        </button>
+      </form>
+      
+      <% if (settings.termsRequired && settings.termsText) { %>
+        <div id="terms" class="terms-section">
+          <h3>Terms of Service</h3>
+          <div class="terms-text"><%= settings.termsText %></div>
+        </div>
+      <% } %>
+    </div>
+    
+    <div class="portal-footer">
+      <p>Network: <%= params.ssidName %></p>
+    </div>
+  </div>
+  
+  <script>
+    // Toggle auth method fields (works without JS for default method)
+    document.querySelectorAll('input[name="authMethod"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        document.querySelectorAll('.auth-field').forEach(function(field) {
+          field.style.display = 'none';
+          var input = field.querySelector('input');
+          if (input) input.required = false;
+        });
+        var activeField = document.querySelector('.auth-field[data-method="' + this.value + '"]');
+        if (activeField) {
+          activeField.style.display = 'block';
+          var input = activeField.querySelector('input');
+          if (input && this.value !== 'click-through') input.required = true;
+        }
+      });
+    });
+    // Trigger initial state
+    var checked = document.querySelector('input[name="authMethod"]:checked');
+    if (checked) checked.dispatchEvent(new Event('change'));
+  </script>
+</body>
+</html>

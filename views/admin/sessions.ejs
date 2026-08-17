@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <%- include('partials/nav', { admin, active: 'sessions' }) %>
+  
+  <main class="admin-main">
+    <div class="page-header">
+      <h1>Active Sessions</h1>
+    </div>
+    
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Client MAC</th>
+            <th>SSID</th>
+            <th>Auth Method</th>
+            <th>Started</th>
+            <th>Expires</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% sessions.forEach(s => { %>
+            <tr>
+              <td><code><%= s.clientMac %></code></td>
+              <td><%= s.ssidName %></td>
+              <td><%= s.authMethod %></td>
+              <td><%= s.startedAt.toLocaleString() %></td>
+              <td><%= s.expiresAt.toLocaleString() %></td>
+              <td>
+                <form method="POST" action="/admin/sessions/<%= s.id %>/extend" style="display: inline;">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="minutes" value="60">
+                  <button type="submit" class="btn btn-sm">+1hr</button>
+                </form>
+                <form method="POST" action="/admin/sessions/<%= s.id %>/disconnect" style="display: inline;"
+                      onsubmit="return confirm('Disconnect this client?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-sm btn-danger">Disconnect</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (sessions.length === 0) { %>
+            <tr><td colspan="6" class="text-muted">No active sessions</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

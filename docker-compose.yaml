@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omada-guest-portal
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=8080
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - OMADA_CONTROLLER_URL=${OMADA_CONTROLLER_URL}
+      - OMADA_SITE_NAME=${OMADA_SITE_NAME}
+      - OMADA_OPERATOR_USERNAME=${OMADA_OPERATOR_USERNAME}
+      - OMADA_OPERATOR_PASSWORD=${OMADA_OPERATOR_PASSWORD}
+      - DEFAULT_SESSION_DURATION_MINUTES=${DEFAULT_SESSION_DURATION_MINUTES:-60}
+      - GUEST_SSID=${GUEST_SSID}
+      - TZ=${TZ:-UTC}
+      - DATABASE_URL=file:/data/portal.db
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-10}
+      - RATE_LIMIT_WINDOW_MINUTES=${RATE_LIMIT_WINDOW_MINUTES:-15}
+      - TRUST_PROXY=${TRUST_PROXY:-0}
+    volumes:
+      - portal-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  portal-data:
+    name: omada-portal-data

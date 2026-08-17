@@ -1,0 +1,18 @@
+<nav class="admin-nav">
+  <div class="nav-brand">
+    <a href="/admin/dashboard">🏠 Guest Portal</a>
+  </div>
+  <ul class="nav-links">
+    <li><a href="/admin/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a></li>
+    <li><a href="/admin/vouchers" class="<%= active === 'vouchers' ? 'active' : '' %>">Vouchers</a></li>
+    <li><a href="/admin/sessions" class="<%= active === 'sessions' ? 'active' : '' %>">Sessions</a></li>
+    <li><a href="/admin/settings" class="<%= active === 'settings' ? 'active' : '' %>">Settings</a></li>
+    <li><a href="/admin/audit" class="<%= active === 'audit' ? 'active' : '' %>">Audit Log</a></li>
+  </ul>
+  <div class="nav-user">
+    <span><%= admin.username %></span>
+    <form method="POST" action="/admin/logout" style="display: inline;">
+      <button type="submit" class="btn btn-sm">Logout</button>
+    </form>
+  </div>
+</nav>

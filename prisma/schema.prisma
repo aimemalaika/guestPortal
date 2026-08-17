@@ -1,0 +1,158 @@
+// =============================================================================
+// Prisma Schema — Omada Guest Portal
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Admin Users
+// -----------------------------------------------------------------------------
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastLoginAt  DateTime?
+  
+  auditLogs    AuditLog[]
+}
+
+// -----------------------------------------------------------------------------
+// Vouchers
+// -----------------------------------------------------------------------------
+model Voucher {
+  id                   String        @id @default(cuid())
+  code                 String        @unique
+  
+  // Limits
+  durationMinutes      Int           // How long the session lasts once activated
+  dataLimitMb          Int?          // Optional data cap in MB
+  maxDevices           Int           @default(1) // Max simultaneous devices
+  maxUses              Int           @default(1) // Total times this code can be used
+  
+  // Validity
+  expiresAt            DateTime?     // When the voucher itself expires (can't be used after)
+  
+  // State
+  usedCount            Int           @default(0)
+  // VoucherStatus: UNUSED, ACTIVE, EXHAUSTED, EXPIRED, REVOKED
+  status               String        @default("UNUSED")
+  
+  // Metadata
+  note                 String?       // Admin notes
+  batchId              String?       // For grouping vouchers created together
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  
+  sessions             GuestSession[]
+  auditLogs            AuditLog[]
+}
+
+// -----------------------------------------------------------------------------
+// Guest Sessions
+// -----------------------------------------------------------------------------
+model GuestSession {
+  id              String        @id @default(cuid())
+  
+  // Client identification
+  clientMac       String
+  apMac           String
+  ssidName        String
+  radioId         Int
+  
+  // Authorization details
+  // AuthMethod: VOUCHER, SHARED_PASSWORD, CLICK_THROUGH
+  authMethod      String
+  voucherId       String?
+  voucher         Voucher?      @relation(fields: [voucherId], references: [id])
+  
+  // Timing
+  startedAt       DateTime      @default(now())
+  expiresAt       DateTime
+  endedAt         DateTime?     // When session was terminated (manual or expired)
+  
+  // State
+  // SessionStatus: ACTIVE, EXPIRED, DISCONNECTED, REVOKED
+  status          String        @default("ACTIVE")
+  dataUsedBytes   BigInt        @default(0)
+  
+  // Original redirect URL
+  redirectUrl     String?
+  
+  auditLogs       AuditLog[]
+  
+  @@index([clientMac])
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// Portal Branding / Settings
+// -----------------------------------------------------------------------------
+model PortalSettings {
+  id                String   @id @default("default")
+  
+  // Branding
+  logoUrl           String?
+  backgroundUrl     String?
+  backgroundColor   String   @default("#1a1a2e")
+  accentColor       String   @default("#4f46e5")
+  welcomeHeading    String   @default("Welcome to Guest WiFi")
+  welcomeBody       String   @default("Please authenticate to access the internet.")
+  
+  // Terms of service
+  termsText         String   @default("By connecting, you agree to our acceptable use policy.")
+  termsRequired     Boolean  @default(true)
+  
+  // Auth methods enabled
+  sharedPasswordEnabled  Boolean @default(true)
+  sharedPasswordHash     String?
+  voucherEnabled         Boolean @default(true)
+  clickThroughEnabled    Boolean @default(false)
+  
+  // Success page
+  successHeading    String   @default("You're connected!")
+  successBody       String   @default("Redirecting you shortly...")
+  redirectDelay     Int      @default(3) // seconds
+  
+  updatedAt         DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// Audit Log
+// -----------------------------------------------------------------------------
+model AuditLog {
+  id          String      @id @default(cuid())
+  timestamp   DateTime    @default(now())
+  
+  // What happened
+  // AuditAction: GUEST_LOGIN_ATTEMPT, GUEST_LOGIN_SUCCESS, GUEST_LOGIN_FAILED,
+  // GUEST_AUTHORIZED, GUEST_DISCONNECTED, ADMIN_LOGIN, ADMIN_LOGOUT, ADMIN_CREATED,
+  // VOUCHER_CREATED, VOUCHER_BATCH_CREATED, VOUCHER_REVOKED, VOUCHER_USED,
+  // SESSION_EXTENDED, SESSION_TERMINATED, SETTINGS_UPDATED, BRANDING_UPDATED
+  action      String
+  success     Boolean
+  details     String?     // JSON string with additional details
+  
+  // Who/what
+  ipAddress   String?
+  clientMac   String?
+  
+  // Relations (optional)
+  adminId     String?
+  admin       AdminUser?  @relation(fields: [adminId], references: [id])
+  voucherId   String?
+  voucher     Voucher?    @relation(fields: [voucherId], references: [id])
+  sessionId   String?
+  session     GuestSession? @relation(fields: [sessionId], references: [id])
+  
+  @@index([timestamp])
+  @@index([action])
+}

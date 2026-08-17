@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <%- include('partials/nav', { admin, active: 'dashboard' }) %>
+  
+  <main class="admin-main">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <% if (!controllerOnline) { %>
+        <div class="alert alert-error">⚠️ Omada Controller is unreachable</div>
+      <% } %>
+    </div>
+    
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value"><%= stats.activeSessions %></div>
+        <div class="stat-label">Active Sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= stats.unusedVouchers %></div>
+        <div class="stat-label">Unused Vouchers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= stats.totalVouchers %></div>
+        <div class="stat-label">Total Vouchers</div>
+      </div>
+      <div class="stat-card <%= controllerOnline ? 'stat-online' : 'stat-offline' %>">
+        <div class="stat-value"><%= controllerOnline ? '✓' : '✗' %></div>
+        <div class="stat-label">Controller</div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Recent Activity</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% recentActivity.forEach(log => { %>
+            <tr>
+              <td><%= log.timestamp.toLocaleString() %></td>
+              <td>
+                <span class="badge badge-<%= log.success ? 'success' : 'error' %>">
+                  <%= log.action.replace(/_/g, ' ') %>
+                </span>
+              </td>
+              <td><%= log.clientMac || log.ipAddress || '-' %></td>
+            </tr>
+          <% }) %>
+          <% if (recentActivity.length === 0) { %>
+            <tr><td colspan="3" class="text-muted">No activity yet</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <%- include('partials/nav', { admin, active: 'audit' }) %>
+  
+  <main class="admin-main">
+    <div class="page-header">
+      <h1>Audit Log</h1>
+      <a href="/admin/audit/export" class="btn">📥 Export CSV</a>
+    </div>
+    
+    <div class="card">
+      <div class="filters">
+        <form method="GET" class="filter-form">
+          <select name="action" onchange="this.form.submit()">
+            <option value="all">All Actions</option>
+            <option value="GUEST_LOGIN_SUCCESS" <%= filters.action === 'GUEST_LOGIN_SUCCESS' ? 'selected' : '' %>>Guest Login (Success)</option>
+            <option value="GUEST_LOGIN_FAILED" <%= filters.action === 'GUEST_LOGIN_FAILED' ? 'selected' : '' %>>Guest Login (Failed)</option>
+            <option value="ADMIN_LOGIN" <%= filters.action === 'ADMIN_LOGIN' ? 'selected' : '' %>>Admin Login</option>
+            <option value="VOUCHER_CREATED" <%= filters.action === 'VOUCHER_CREATED' ? 'selected' : '' %>>Voucher Created</option>
+            <option value="VOUCHER_REVOKED" <%= filters.action === 'VOUCHER_REVOKED' ? 'selected' : '' %>>Voucher Revoked</option>
+            <option value="SESSION_TERMINATED" <%= filters.action === 'SESSION_TERMINATED' ? 'selected' : '' %>>Session Terminated</option>
+            <option value="SETTINGS_UPDATED" <%= filters.action === 'SETTINGS_UPDATED' ? 'selected' : '' %>>Settings Updated</option>
+          </select>
+        </form>
+      </div>
+      
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Action</th>
+            <th>Status</th>
+            <th>IP Address</th>
+            <th>Client MAC</th>
+            <th>Admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% logs.forEach(log => { %>
+            <tr>
+              <td><%= log.timestamp.toLocaleString() %></td>
+              <td><%= log.action.replace(/_/g, ' ') %></td>
+              <td>
+                <span class="badge badge-<%= log.success ? 'success' : 'error' %>">
+                  <%= log.success ? 'OK' : 'FAIL' %>
+                </span>
+              </td>
+              <td><%= log.ipAddress || '-' %></td>
+              <td><code><%= log.clientMac || '-' %></code></td>
+              <td><%= log.admin?.username || '-' %></td>
+            </tr>
+          <% }) %>
+          <% if (logs.length === 0) { %>
+            <tr><td colspan="6" class="text-muted">No logs found</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+      
+      <% if (pagination.totalPages > 1) { %>
+        <div class="pagination">
+          <% for (let i = 1; i <= pagination.totalPages; i++) { %>
+            <a href="?page=<%= i %>&action=<%= filters.action || '' %>" 
+               class="<%= i === pagination.page ? 'active' : '' %>"><%= i %></a>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

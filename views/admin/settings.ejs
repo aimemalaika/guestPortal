@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <%- include('partials/nav', { admin, active: 'settings' }) %>
+  
+  <main class="admin-main">
+    <div class="page-header">
+      <h1>Portal Settings</h1>
+    </div>
+    
+    <% if (success) { %>
+      <div class="alert alert-success">Settings saved successfully!</div>
+    <% } %>
+    
+    <form method="POST" action="/admin/settings">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      
+      <div class="card">
+        <h2>Branding</h2>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="welcomeHeading">Welcome Heading</label>
+            <input type="text" id="welcomeHeading" name="welcomeHeading" 
+                   value="<%= settings.welcomeHeading %>" maxlength="100">
+          </div>
+          
+          <div class="form-group">
+            <label for="welcomeBody">Welcome Message</label>
+            <textarea id="welcomeBody" name="welcomeBody" rows="2" maxlength="1000"><%= settings.welcomeBody %></textarea>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="backgroundColor">Background Color</label>
+            <input type="color" id="backgroundColor" name="backgroundColor" 
+                   value="<%= settings.backgroundColor %>">
+          </div>
+          
+          <div class="form-group">
+            <label for="accentColor">Accent Color</label>
+            <input type="color" id="accentColor" name="accentColor" 
+                   value="<%= settings.accentColor %>">
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>Terms of Service</h2>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" name="termsRequired" value="true" <%= settings.termsRequired ? 'checked' : '' %>>
+            Require terms acceptance
+          </label>
+        </div>
+        
+        <div class="form-group">
+          <label for="termsText">Terms Text</label>
+          <textarea id="termsText" name="termsText" rows="4" maxlength="5000"><%= settings.termsText %></textarea>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>Authentication Methods</h2>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" name="sharedPasswordEnabled" value="true" <%= settings.sharedPasswordEnabled ? 'checked' : '' %>>
+            Enable shared password
+          </label>
+        </div>
+        
+        <div class="form-group">
+          <label for="sharedPassword">Set Shared Password (leave blank to keep current)</label>
+          <input type="password" id="sharedPassword" name="sharedPassword" autocomplete="new-password">
+        </div>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" name="voucherEnabled" value="true" <%= settings.voucherEnabled ? 'checked' : '' %>>
+            Enable voucher codes
+          </label>
+        </div>
+        
+        <div class="form-group">
+          <label>
+            <input type="checkbox" name="clickThroughEnabled" value="true" <%= settings.clickThroughEnabled ? 'checked' : '' %>>
+            Enable click-through (no credential required)
+          </label>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>Success Page</h2>
+        
+        <div class="form-group">
+          <label for="successHeading">Success Heading</label>
+          <input type="text" id="successHeading" name="successHeading" 
+                 value="<%= settings.successHeading %>" maxlength="100">
+        </div>
+        
+        <div class="form-group">
+          <label for="successBody">Success Message</label>
+          <textarea id="successBody" name="successBody" rows="2" maxlength="1000"><%= settings.successBody %></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="redirectDelay">Redirect Delay (seconds)</label>
+          <input type="number" id="redirectDelay" name="redirectDelay" 
+                 value="<%= settings.redirectDelay %>" min="0" max="30">
+        </div>
+      </div>
+      
+      <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+  </main>
+</body>
+</html>

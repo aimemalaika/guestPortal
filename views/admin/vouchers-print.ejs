@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <style>
+    @media print {
+      body { margin: 0; }
+      .no-print { display: none; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+    }
+    .voucher-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .voucher-card {
+      border: 2px dashed #ccc;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .voucher-card h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: #666;
+    }
+    .voucher-code {
+      font-family: monospace;
+      font-size: 24px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin: 15px 0;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    .voucher-info {
+      font-size: 12px;
+      color: #666;
+    }
+    .voucher-ssid {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .print-btn {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 30px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn no-print" onclick="window.print()">🖨️ Print Vouchers</button>
+  
+  <div class="voucher-grid">
+    <% vouchers.forEach(v => { %>
+      <div class="voucher-card">
+        <h3><%= settings?.welcomeHeading || 'Guest WiFi Access' %></h3>
+        <div class="voucher-code"><%= v.code %></div>
+        <div class="voucher-info">
+          <div>Duration: <%= v.durationMinutes %> minutes</div>
+          <% if (v.dataLimitMb) { %>
+            <div>Data Limit: <%= v.dataLimitMb %> MB</div>
+          <% } %>
+        </div>
+        <div class="voucher-ssid">
+          <strong>Network:</strong> <%= ssid %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+  
+  <p class="no-print" style="text-align: center; margin-top: 30px;">
+    <a href="/admin/vouchers">← Back to Vouchers</a>
+  </p>
+</body>
+</html>

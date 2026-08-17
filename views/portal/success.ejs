@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/portal.css">
+  <style>
+    :root {
+      --bg-color: <%= settings.backgroundColor %>;
+      --accent-color: <%= settings.accentColor %>;
+    }
+  </style>
+  <% if (redirectUrl) { %>
+    <meta http-equiv="refresh" content="<%= settings.redirectDelay %>; url=<%= redirectUrl %>">
+  <% } %>
+</head>
+<body class="portal-page" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/images/background.jpg') center/cover no-repeat fixed; background-color: var(--bg-color);">
+  <div class="portal-container">
+    <div class="portal-card success-card">
+      <div class="success-icon">✓</div>
+      
+      <h1><%= settings.successHeading %></h1>
+      <p class="welcome-text"><%= settings.successBody %></p>
+      
+      <% if (redirectUrl) { %>
+        <div class="redirect-info">
+          <p>Redirecting in <span id="countdown"><%= settings.redirectDelay %></span> seconds...</p>
+          <a href="<%= redirectUrl %>" class="btn btn-primary" style="background-color: var(--accent-color);">
+            Continue Now
+          </a>
+        </div>
+      <% } %>
+      
+      <div class="session-info">
+        <p><strong>Session expires:</strong> <%= expiresAt.toLocaleString() %></p>
+      </div>
+    </div>
+  </div>
+  
+  <% if (redirectUrl) { %>
+    <script>
+      var countdown = <%= settings.redirectDelay %>;
+      var el = document.getElementById('countdown');
+      var timer = setInterval(function() {
+        countdown--;
+        if (el) el.textContent = countdown;
+        if (countdown <= 0) {
+          clearInterval(timer);
+          window.location.href = '<%= redirectUrl %>';
+        }
+      }, 1000);
+    </script>
+  <% } %>
+</body>
+</html>

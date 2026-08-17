@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <%- include('partials/nav', { admin, active: 'vouchers' }) %>
+  
+  <main class="admin-main">
+    <div class="page-header">
+      <h1>Voucher Management</h1>
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('createModal').showModal()">
+        + Create Vouchers
+      </button>
+    </div>
+    
+    <div class="card">
+      <div class="filters">
+        <form method="GET" class="filter-form">
+          <select name="status" onchange="this.form.submit()">
+            <option value="all" <%= filters.status === 'all' ? 'selected' : '' %>>All Status</option>
+            <option value="unused" <%= filters.status === 'UNUSED' ? 'selected' : '' %>>Unused</option>
+            <option value="active" <%= filters.status === 'ACTIVE' ? 'selected' : '' %>>Active</option>
+            <option value="exhausted" <%= filters.status === 'EXHAUSTED' ? 'selected' : '' %>>Exhausted</option>
+            <option value="expired" <%= filters.status === 'EXPIRED' ? 'selected' : '' %>>Expired</option>
+            <option value="revoked" <%= filters.status === 'REVOKED' ? 'selected' : '' %>>Revoked</option>
+          </select>
+          <input type="text" name="search" value="<%= filters.search || '' %>" placeholder="Search code...">
+          <button type="submit" class="btn">Search</button>
+        </form>
+      </div>
+      
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Duration</th>
+            <th>Uses</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% vouchers.forEach(v => { %>
+            <tr>
+              <td><code class="voucher-code"><%= v.code %></code></td>
+              <td><%= v.durationMinutes %> min</td>
+              <td><%= v.usedCount %>/<%= v.maxUses %></td>
+              <td><span class="badge badge-<%= v.status.toLowerCase() %>"><%= v.status %></span></td>
+              <td><%= v.createdAt.toLocaleDateString() %></td>
+              <td>
+                <% if (v.status !== 'REVOKED') { %>
+                  <form method="POST" action="/admin/vouchers/<%= v.id %>/revoke" style="display: inline;" 
+                        onsubmit="return confirm('Revoke this voucher?')">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn btn-sm btn-danger">Revoke</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (vouchers.length === 0) { %>
+            <tr><td colspan="6" class="text-muted">No vouchers found</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+  
+  <dialog id="createModal" class="modal">
+    <form method="POST" action="/admin/vouchers/create">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <h2>Create Vouchers</h2>
+      
+      <div class="form-group">
+        <label for="quantity">Quantity</label>
+        <input type="number" id="quantity" name="quantity" value="1" min="1" max="1000">
+      </div>
+      
+      <div class="form-group">
+        <label for="durationMinutes">Session Duration (minutes)</label>
+        <input type="number" id="durationMinutes" name="durationMinutes" value="60" min="1" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="maxUses">Max Uses per Code</label>
+        <input type="number" id="maxUses" name="maxUses" value="1" min="1" max="1000">
+      </div>
+      
+      <div class="form-group">
+        <label for="maxDevices">Max Simultaneous Devices</label>
+        <input type="number" id="maxDevices" name="maxDevices" value="1" min="1" max="10">
+      </div>
+      
+      <div class="form-group">
+        <label for="dataLimitMb">Data Limit (MB, optional)</label>
+        <input type="number" id="dataLimitMb" name="dataLimitMb" min="0">
+      </div>
+      
+      <div class="form-group">
+        <label for="expiresAt">Voucher Expires (optional)</label>
+        <input type="date" id="expiresAt" name="expiresAt">
+      </div>
+      
+      <div class="form-group">
+        <label for="note">Note (optional)</label>
+        <input type="text" id="note" name="note" maxlength="500">
+      </div>
+      
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="document.getElementById('createModal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
