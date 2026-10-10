@@ -50,6 +50,12 @@ interface SiteInfo {
   name?: string;
 }
 
+interface ClientDetail {
+  hostName?: string;
+  name?: string;
+  systemName?: string;
+}
+
 interface LoginResult {
   token: string;
 }
@@ -253,6 +259,37 @@ export class OmadaClient {
     this.openApiToken = data.result.accessToken;
     logger.debug('Successfully obtained OpenAPI token');
     return this.openApiToken;
+  }
+
+  async getClientDeviceName(clientMac: string, site?: string): Promise<string | null> {
+    if (!this.controllerId) {
+      await this.fetchControllerInfo();
+    }
+
+    const siteId = await this.resolveSiteId(site);
+    const accessToken = await this.getOpenApiToken();
+    const endpoint = `/openapi/v1/${this.controllerId}/sites/${siteId}/clients/${encodeURIComponent(this.formatOmadaMac(clientMac))}`;
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `AccessToken=${accessToken}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    const data = await this.parseOpenApiResponse<ClientDetail>(response);
+    if (data.errorCode !== 0) {
+      throw new OmadaAuthError(
+        `Failed to retrieve client details: ${data.msg || 'Unknown error'}`,
+        data.errorCode,
+        clientMac,
+      );
+    }
+
+    const details = data.result;
+    return [details?.hostName, details?.name, details?.systemName]
+      .find((value) => typeof value === 'string' && value.trim().length > 0)
+      ?.trim() ?? null;
   }
 
   /**

@@ -69,6 +69,7 @@ model GuestSession {
   radioId         Int
   osType          String?
   deviceType      String?
+  deviceName      String?
   
   // Authorization details
   // AuthMethod: VOUCHER, SHARED_PASSWORD, CLICK_THROUGH

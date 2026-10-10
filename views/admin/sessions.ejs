@@ -23,6 +23,7 @@
         <thead>
           <tr>
             <th>Client MAC</th>
+            <th>Device name</th>
             <th>SSID</th>
             <th>Auth Method</th>
             <th>Started</th>
@@ -34,6 +35,7 @@
           <% sessions.forEach(s => { %>
             <tr>
               <td><code><%= s.clientMac %></code></td>
+              <td><%= s.deviceName || 'Unknown' %></td>
               <td><%= s.ssidName %></td>
               <td><%= s.authMethod %></td>
               <td><%= s.startedAt.toLocaleString() %></td>
@@ -53,7 +55,7 @@
             </tr>
           <% }) %>
           <% if (sessions.length === 0) { %>
-            <tr><td colspan="6" class="text-muted">No active sessions</td></tr>
+            <tr><td colspan="7" class="text-muted">No active sessions</td></tr>
           <% } %>
         </tbody>
       </table>

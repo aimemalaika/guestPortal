@@ -216,6 +216,14 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
       },
     });
 
+    void omadaClient.getClientDeviceName(input.clientMac, input.site)
+      .then((deviceName) => deviceName
+        ? prisma.guestSession.update({ where: { id: session.id }, data: { deviceName } })
+        : undefined)
+      .catch((error: unknown) => {
+        logger.debug({ clientMac, error }, 'Unable to retrieve client name from Omada');
+      });
+
     // Update voucher usage if applicable
     if (voucherId) {
       await prisma.voucher.update({

@@ -24,6 +24,7 @@
         <thead>
           <tr>
             <th>Client MAC</th>
+            <th>Device name</th>
             <th>Operating system</th>
             <th>Device type</th>
             <th>SSID</th>
@@ -37,6 +38,7 @@
           <% sessions.forEach((session) => { %>
             <tr>
               <td><code><%= session.clientMac %></code></td>
+              <td><%= session.deviceName || 'Unknown' %></td>
               <td><%= session.osType ? (osLabels[session.osType] || 'Other') : 'Unknown' %></td>
               <td><%= session.deviceType ? session.deviceType.charAt(0) + session.deviceType.slice(1).toLowerCase() : 'Unknown' %></td>
               <td><%= session.ssidName %></td>
@@ -47,7 +49,7 @@
             </tr>
           <% }) %>
           <% if (sessions.length === 0) { %>
-            <tr><td colspan="8" class="text-muted">No past connections yet</td></tr>
+            <tr><td colspan="9" class="text-muted">No past connections yet</td></tr>
           <% } %>
         </tbody>
       </table>
