@@ -180,8 +180,6 @@ export const portalSettingsSchema = z.object({
   welcomeBody: z.string().max(1000).optional(),
   termsText: z.string().max(5000).optional(),
   termsRequired: z.coerce.boolean().optional(),
-  backgroundColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   sharedPasswordEnabled: z.coerce.boolean().optional(),
   sharedPassword: z.string().optional(),
   voucherEnabled: z.coerce.boolean().optional(),

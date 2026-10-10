@@ -7,10 +7,7 @@
   <%# Non-blocking: after authorization the portal server may be unreachable, and the inline styles below suffice. %>
   <link rel="stylesheet" href="/css/portal.css" media="print" onload="this.media='all'">
   <style>
-    :root {
-      --bg-color: <%= settings.backgroundColor %>;
-      --accent-color: <%= settings.accentColor %>;
-    }
+    :root { --accent-color: #4f46e5; }
 
     /* Fallback critical styles for captive mini-browsers that fail to load /css/portal.css */
     body {
@@ -19,6 +16,8 @@
       color: #1f2937;
       min-height: 100vh;
       margin: 0;
+      position: relative;
+      isolation: isolate;
     }
 
     .portal-page {
@@ -33,6 +32,19 @@
     .portal-container {
       width: 100%;
       max-width: 420px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .success-background {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(0.5);
+      pointer-events: none;
     }
 
     .portal-card {
@@ -87,7 +99,7 @@
     }
 
     .btn-primary {
-      background: var(--accent-color, #4f46e5);
+      background: #4f46e5;
       color: #ffffff;
       margin-top: 0.75rem;
     }
@@ -104,7 +116,8 @@
     <meta http-equiv="refresh" content="<%= settings.redirectDelay %>; url=<%= redirectUrl %>">
   <% } %>
 </head>
-<body class="portal-page" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/images/background.jpg') center/cover no-repeat fixed; background-color: var(--bg-color);">
+<body class="portal-page" style="background-color: #1a1a2e;">
+  <img class="success-background" src="/images/background.jpg" alt="" aria-hidden="true" fetchpriority="high">
   <div class="portal-container">
     <div class="portal-card success-card">
       <div class="success-icon">✓</div>
@@ -115,7 +128,7 @@
       <% if (redirectUrl) { %>
         <div class="redirect-info">
           <p>Redirecting in <span id="countdown"><%= settings.redirectDelay %></span> seconds...</p>
-          <a href="<%= redirectUrl %>" class="btn btn-primary" style="background-color: var(--accent-color);">
+          <a href="<%= redirectUrl %>" class="btn btn-primary" style="background-color: #4f46e5;">
             Continue Now
           </a>
         </div>
