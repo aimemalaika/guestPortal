@@ -3,7 +3,14 @@ import '../types';
 import { prisma } from '../db';
 import { logger } from '../logger';
 import { hashSync, compareSync } from 'bcrypt';
-import { adminLoginSchema, adminSetupSchema, createVoucherSchema, portalSettingsSchema } from '../utils/validation';
+import {
+  adminLoginSchema,
+  adminSetupSchema,
+  changePasswordSchema,
+  createVoucherSchema,
+  portalSettingsSchema,
+} from '../utils/validation';
+import { DASHBOARD_RANGES, getDashboardAnalytics, parseDashboardRange } from '../services/analytics';
 import { randomBytes } from 'crypto';
 import { ZodError } from 'zod';
 import { omadaClient } from '../services/omada-client';
@@ -165,30 +172,20 @@ adminRouter.use(requireAuth);
 
 adminRouter.get('/dashboard', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const [
-      activeSessions,
-      totalVouchers,
-      unusedVouchers,
-      recentActivity,
-    ] = await Promise.all([
-      prisma.guestSession.count({
-        where: { status: 'ACTIVE', expiresAt: { gt: new Date() } },
-      }),
-      prisma.voucher.count(),
-      prisma.voucher.count({ where: { status: 'UNUSED' } }),
+    const [analytics, recentActivity, controllerOnline] = await Promise.all([
+      getDashboardAnalytics(parseDashboardRange(req.query.range)),
       prisma.auditLog.findMany({
-        take: 10,
+        take: 8,
         orderBy: { timestamp: 'desc' },
       }),
+      omadaClient.healthCheck(),
     ]);
-
-    // Check controller connectivity
-    const controllerOnline = await omadaClient.healthCheck();
 
     res.render('admin/dashboard', {
       title: 'Dashboard',
       admin: { username: req.session.adminUsername },
-      stats: { activeSessions, totalVouchers, unusedVouchers },
+      analytics,
+      ranges: DASHBOARD_RANGES,
       recentActivity,
       controllerOnline,
       csrfToken: req.csrfToken?.(),
@@ -540,6 +537,54 @@ adminRouter.post('/settings', async (req: Request, res: Response, next: NextFunc
   } catch (error) {
     if (error instanceof ZodError) {
       return res.status(400).redirect('/admin/settings?error=invalid');
+    }
+    next(error);
+  }
+});
+
+// =============================================================================
+// Account
+// =============================================================================
+
+function renderAccount(req: Request, res: Response, status: number, error: string | null, success: string | null) {
+  return res.status(status).render('admin/account', {
+    title: 'Account',
+    admin: { username: req.session.adminUsername },
+    csrfToken: req.csrfToken?.(),
+    error,
+    success,
+  });
+}
+
+adminRouter.get('/account', (req: Request, res: Response) => {
+  renderAccount(req, res, 200, null, req.query.saved === 'true' ? 'Password changed. Other admin sessions were signed out.' : null);
+});
+
+adminRouter.post('/account/password', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const input = changePasswordSchema.parse(req.body);
+    const admin = await prisma.adminUser.findUnique({ where: { id: req.session.adminId } });
+
+    if (!admin || !compareSync(input.currentPassword, admin.passwordHash)) {
+      await logAdminAudit('ADMIN_PASSWORD_CHANGED', false, { adminId: req.session.adminId, reason: 'wrong_current_password' }, req);
+      return renderAccount(req, res, 400, 'Current password is incorrect.', null);
+    }
+
+    await prisma.adminUser.update({
+      where: { id: admin.id },
+      data: { passwordHash: hashSync(input.password, 12) },
+    });
+
+    // Sign out this admin everywhere else; sessions are persisted as JSON in HttpSession.
+    await prisma.httpSession.deleteMany({
+      where: { sid: { not: req.sessionID }, data: { contains: `"adminId":"${admin.id}"` } },
+    });
+
+    await logAdminAudit('ADMIN_PASSWORD_CHANGED', true, { adminId: admin.id }, req);
+    res.redirect('/admin/account?saved=true');
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return renderAccount(req, res, 400, error.issues[0]?.message || 'Invalid input', null);
     }
     next(error);
   }

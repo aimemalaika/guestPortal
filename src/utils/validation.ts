@@ -148,16 +148,29 @@ export const adminLoginSchema = z.object({
 /**
  * Schema for admin creation (first-run setup).
  */
+const newPasswordFields = {
+  password: z.string().min(12, { message: 'Password must be at least 12 characters' }),
+  confirmPassword: z.string(),
+};
+
+const passwordsMatch = (data: { password: string; confirmPassword: string }) =>
+  data.password === data.confirmPassword;
+const passwordsMatchError = { message: 'Passwords do not match', path: ['confirmPassword'] };
+
 export const adminSetupSchema = z.object({
   username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_-]+$/, {
     message: 'Username can only contain letters, numbers, underscores, and hyphens',
   }),
-  password: z.string().min(12, { message: 'Password must be at least 12 characters' }),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+  ...newPasswordFields,
+}).refine(passwordsMatch, passwordsMatchError);
+
+/**
+ * Schema for an admin changing their own password.
+ */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, { message: 'Enter your current password' }),
+  ...newPasswordFields,
+}).refine(passwordsMatch, passwordsMatchError);
 
 /**
  * Schema for portal settings update.
@@ -176,4 +189,9 @@ export const portalSettingsSchema = z.object({
   successHeading: z.string().max(100).optional(),
   successBody: z.string().max(1000).optional(),
   redirectDelay: z.coerce.number().int().min(0).max(30).optional(),
+  // Empty clears the setting; must be reachable from the internet, not the portal's LAN address.
+  successRedirectUrl: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim() === '' ? null : value),
+    z.string().trim().url().regex(/^https?:\/\//i, { message: 'Must be an http(s) URL' }).nullable().optional(),
+  ),
 });

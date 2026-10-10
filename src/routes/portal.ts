@@ -5,6 +5,7 @@ import { logger } from '../logger';
 import { config } from '../config';
 import { omadaClient, OmadaConnectionError, OmadaAuthError } from '../services/omada-client';
 import { portalRedirectSchema, guestLoginSchema } from '../utils/validation';
+import { classifyClient } from '../utils/client-type';
 import { compareSync } from 'bcrypt';
 import { ZodError } from 'zod';
 
@@ -197,12 +198,15 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
     }
 
     // Create session record
+    const clientType = classifyClient(req.get('user-agent'));
     const session = await prisma.guestSession.create({
       data: {
         clientMac: input.clientMac,
         apMac: input.apMac,
         ssidName: input.ssidName,
         radioId: input.radioId,
+        osType: clientType.osType,
+        deviceType: clientType.deviceType,
         authMethod: input.authMethod === 'password' ? 'SHARED_PASSWORD' 
           : input.authMethod === 'voucher' ? 'VOUCHER' 
           : 'CLICK_THROUGH',
@@ -233,22 +237,19 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
       durationMinutes: sessionDurationMinutes,
     });
 
-    const shouldAutoRedirect = !!input.redirectUrl && !isCaptiveProbeUrl(input.redirectUrl);
-
     logger.info({
       clientMac,
       duration: Date.now() - startTime,
       sessionDurationMinutes,
       redirectUrl: input.redirectUrl,
-      shouldAutoRedirect,
     }, 'Guest authorized successfully');
 
     // Clear session params
     delete req.session.portalParams;
 
-    // Use a dedicated GET endpoint for success so captive mini-browsers reliably
-    // display the page after POST completion.
-    return res.redirect(303, `/portal/success?sid=${encodeURIComponent(session.id)}`);
+    // Render success in this response: once authorized, the guest network may drop new
+    // connections to the portal server, so a redirect to /portal/success can time out.
+    return renderSuccess(res, settings, session);
 
   } catch (error) {
     if (error instanceof ZodError) {
@@ -281,15 +282,7 @@ portalRouter.get('/success', async (req: Request, res: Response, next: NextFunct
       });
     }
 
-    const settings = await getOrCreateSettings();
-    const shouldAutoRedirect = !!session.redirectUrl && !isCaptiveProbeUrl(session.redirectUrl);
-
-    return res.render('portal/success', {
-      title: settings.successHeading,
-      settings,
-      redirectUrl: shouldAutoRedirect ? session.redirectUrl : undefined,
-      expiresAt: session.expiresAt,
-    });
+    return renderSuccess(res, await getOrCreateSettings(), session);
   } catch (error) {
     next(error);
   }
@@ -298,6 +291,30 @@ portalRouter.get('/success', async (req: Request, res: Response, next: NextFunct
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+function renderSuccess(
+  res: Response,
+  settings: Awaited<ReturnType<typeof getOrCreateSettings>>,
+  session: { status: string; redirectUrl: string | null; expiresAt: Date },
+) {
+  if (session.status !== 'ACTIVE' || session.expiresAt <= new Date()) {
+    return res.status(410).render('error', {
+      title: 'Session Ended',
+      message: 'Your WiFi session has ended. Reconnect to the WiFi network to sign in again.',
+    });
+  }
+
+  const originalUrl = session.redirectUrl && !isCaptiveProbeUrl(session.redirectUrl)
+    ? session.redirectUrl
+    : undefined;
+
+  return res.render('portal/success', {
+    title: settings.successHeading,
+    settings,
+    redirectUrl: settings.successRedirectUrl || originalUrl,
+    expiresAt: session.expiresAt,
+  });
+}
 
 async function getOrCreateSettings() {
   let settings = await prisma.portalSettings.findUnique({
@@ -415,7 +432,8 @@ function isCaptiveProbeUrl(url: string): boolean {
       host.includes('msftncsi.com') ||
       host.includes('captive.apple.com') ||
       host.includes('connectivitycheck.android.com') ||
-      host.includes('detectportal.firefox.com')
+      host.includes('detectportal.firefox.com') ||
+      host.includes('firefox-portal-detection.com')
     );
   } catch {
     return false;

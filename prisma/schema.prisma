@@ -67,6 +67,8 @@ model GuestSession {
   apMac           String
   ssidName        String
   radioId         Int
+  osType          String?
+  deviceType      String?
   
   // Authorization details
   // AuthMethod: VOUCHER, SHARED_PASSWORD, CLICK_THROUGH
@@ -121,8 +123,20 @@ model PortalSettings {
   successHeading    String   @default("You're connected!")
   successBody       String   @default("Redirecting you shortly...")
   redirectDelay     Int      @default(3) // seconds
-  
+  successRedirectUrl String? // Where to send guests after login; falls back to their original URL
+
   updatedAt         DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// HTTP Sessions (express-session store, survives restarts)
+// -----------------------------------------------------------------------------
+model HttpSession {
+  sid         String   @id
+  data        String   // JSON-serialized session
+  expiresAt   DateTime
+
+  @@index([expiresAt])
 }
 
 // -----------------------------------------------------------------------------

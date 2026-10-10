@@ -1,6 +1,6 @@
 <nav class="admin-nav">
   <div class="nav-brand">
-    <a href="/admin/dashboard">🏠 Guest Portal</a>
+    <a href="/admin/dashboard">Guest Portal</a>
   </div>
   <ul class="nav-links">
     <li><a href="/admin/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a></li>
@@ -10,7 +10,10 @@
     <li><a href="/admin/audit" class="<%= active === 'audit' ? 'active' : '' %>">Audit Log</a></li>
   </ul>
   <div class="nav-user">
-    <span><%= admin.username %></span>
+    <a href="/admin/account" class="nav-account <%= active === 'account' ? 'active' : '' %>" title="Account and password">
+      <span class="nav-avatar" aria-hidden="true"><%= (admin.username || '?').charAt(0).toUpperCase() %></span>
+      <span><%= admin.username %></span>
+    </a>
     <form method="POST" action="/admin/logout" style="display: inline;">
       <button type="submit" class="btn btn-sm">Logout</button>
     </form>

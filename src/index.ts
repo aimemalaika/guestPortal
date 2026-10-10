@@ -11,6 +11,7 @@ import './types';
 import { config } from './config';
 import { logger } from './logger';
 import { prisma } from './db';
+import { PrismaSessionStore } from './session-store';
 import { omadaClient, OmadaConnectionError } from './services/omada-client';
 import { macAddressSchema } from './utils/validation';
 
@@ -87,6 +88,7 @@ app.use(cookieParser());
 // =============================================================================
 
 app.use(session({
+  store: new PrismaSessionStore(),
   secret: config.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
