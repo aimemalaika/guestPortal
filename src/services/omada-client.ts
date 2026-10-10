@@ -272,9 +272,10 @@ export class OmadaClient {
       durationMs: request.time,
     }, 'Authorizing client');
 
+    // The controller stores MACs verbatim and the AP only matches its own AA-BB-CC-DD-EE-FF form.
     const data = await this.request('POST', `/${this.controllerId}/api/v2/hotspot/extPortal/auth`, {
-      clientMac: request.clientMac,
-      apMac: request.apMac,
+      clientMac: this.formatOmadaMac(request.clientMac),
+      apMac: this.formatOmadaMac(request.apMac),
       ssidName: request.ssidName,
       radioId: request.radioId,
       site,
@@ -537,6 +538,11 @@ export class OmadaClient {
 
   private normalizeMacForCompare(mac: string): string {
     return mac.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+  }
+
+  /** Omada's MAC form: AA-BB-CC-DD-EE-FF. */
+  private formatOmadaMac(mac: string): string {
+    return this.normalizeMacForCompare(mac).match(/.{2}/g)!.join('-');
   }
 
   /**
