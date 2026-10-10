@@ -18,6 +18,10 @@
     </div>
     
     <div class="card">
+      <% if (error) { %>
+        <div class="alert alert-error"><%= error %></div>
+      <% } %>
+
       <div class="filters">
         <form method="GET" class="filter-form">
           <select name="status" onchange="this.form.submit()">
@@ -84,6 +88,12 @@
       <div class="form-group">
         <label for="durationMinutes">Session Duration (minutes)</label>
         <input type="number" id="durationMinutes" name="durationMinutes" value="60" min="1" required>
+      </div>
+
+      <div class="form-group">
+        <label for="customCode">Custom code (optional)</label>
+        <input type="text" id="customCode" name="customCode" maxlength="32" placeholder="Leave blank to auto-generate">
+        <small class="text-muted">Allowed: letters, numbers, hyphens, underscores (single voucher only).</small>
       </div>
       
       <div class="form-group">

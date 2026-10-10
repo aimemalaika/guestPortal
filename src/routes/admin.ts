@@ -7,6 +7,7 @@ import { adminLoginSchema, adminSetupSchema, createVoucherSchema, portalSettings
 import { randomBytes } from 'crypto';
 import { ZodError } from 'zod';
 import { omadaClient } from '../services/omada-client';
+import { config } from '../config';
 
 // =============================================================================
 // Admin Routes
@@ -220,11 +221,20 @@ adminRouter.get('/vouchers', async (req: Request, res: Response, next: NextFunct
       take: 100,
     });
 
+    const error = req.query.error as string | undefined;
+    const errorMessage =
+      error === 'duplicate_code'
+        ? 'That custom voucher code already exists. Please choose a different one.'
+        : error === 'invalid'
+          ? 'Invalid voucher input. Check quantity and custom code format.'
+          : null;
+
     res.render('admin/vouchers', {
       title: 'Voucher Management',
       admin: { username: req.session.adminUsername },
       vouchers,
       filters: { status, search },
+      error: errorMessage,
       csrfToken: req.csrfToken?.(),
     });
   } catch (error) {
@@ -238,10 +248,18 @@ adminRouter.post('/vouchers/create', async (req: Request, res: Response, next: N
 
     const batchId = randomBytes(8).toString('hex');
     const vouchers: { code: string }[] = [];
+    const customCode = input.customCode?.trim().toUpperCase();
 
     for (let i = 0; i < input.quantity; i++) {
-      const code = generateVoucherCode();
+      const code = customCode && input.quantity === 1 ? customCode : generateVoucherCode();
       vouchers.push({ code });
+
+      if (customCode && input.quantity === 1) {
+        const existingVoucher = await prisma.voucher.findUnique({ where: { code } });
+        if (existingVoucher) {
+          return res.status(400).redirect('/admin/vouchers?error=duplicate_code');
+        }
+      }
 
       await prisma.voucher.create({
         data: {
@@ -273,10 +291,20 @@ adminRouter.post('/vouchers/create', async (req: Request, res: Response, next: N
     } else {
       res.redirect(`/admin/vouchers/print?batch=${batchId}`);
     }
-  } catch (error) {
+  } catch (error: unknown) {
     if (error instanceof ZodError) {
       return res.status(400).redirect('/admin/vouchers?error=invalid');
     }
+
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === 'P2002'
+    ) {
+      return res.status(400).redirect('/admin/vouchers?error=duplicate_code');
+    }
+
     next(error);
   }
 });
@@ -360,10 +388,17 @@ adminRouter.get('/sessions', async (req: Request, res: Response, next: NextFunct
       orderBy: { startedAt: 'desc' },
     });
 
+    const error = req.query.error as string | undefined;
+    const errorMessage =
+      error === 'disconnect_failed'
+        ? 'Failed to unauthenticate client on controller. Session was not closed locally.'
+        : null;
+
     res.render('admin/sessions', {
       title: 'Active Sessions',
       admin: { username: req.session.adminUsername },
       sessions,
+      error: errorMessage,
       csrfToken: req.csrfToken?.(),
     });
   } catch (error) {
@@ -380,11 +415,18 @@ adminRouter.post('/sessions/:id/disconnect', async (req: Request, res: Response,
       return res.status(404).redirect('/admin/sessions');
     }
 
-    // Deauthorize with controller
+    // Deauthorize with controller. If this fails, do not close local session.
     try {
       await omadaClient.deauthorizeClient(session.clientMac);
     } catch (error) {
-      logger.warn({ error, clientMac: session.clientMac }, 'Failed to deauthorize client');
+      logger.error({ error, clientMac: session.clientMac }, 'Failed to deauthorize client');
+      await logAdminAudit('SESSION_TERMINATED', false, {
+        sessionId: id,
+        clientMac: session.clientMac,
+        adminId: req.session.adminId,
+        reason: 'controller_deauth_failed',
+      }, req);
+      return res.redirect('/admin/sessions?error=disconnect_failed');
     }
 
     await prisma.guestSession.update({
@@ -420,7 +462,8 @@ adminRouter.post('/sessions/:id/extend', async (req: Request, res: Response, nex
       apMac: session.apMac,
       ssidName: session.ssidName,
       radioId: session.radioId,
-      time: minutes,
+      site: config.OMADA_SITE_NAME,
+      time: minutes * 60 * 1000,
     });
 
     await prisma.guestSession.update({

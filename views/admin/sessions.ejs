@@ -13,6 +13,10 @@
     <div class="page-header">
       <h1>Active Sessions</h1>
     </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
     
     <div class="card">
       <table class="data-table">

@@ -9,8 +9,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies for native modules (bcrypt)
-RUN apk add --no-cache python3 make g++
+# Install dependencies for native modules and Prisma/openssl support
+RUN apk add --no-cache python3 make g++ openssl
 
 # Copy package files
 COPY package*.json ./
@@ -38,8 +38,8 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install wget for healthcheck
-RUN apk add --no-cache wget
+# Install runtime dependencies for healthcheck and Prisma/OpenSSL support
+RUN apk add --no-cache wget openssl
 
 # Create non-root user
 RUN addgroup -g 1001 -S portal && \
@@ -61,8 +61,8 @@ COPY --from=builder /app/dist ./dist/
 COPY --from=builder /app/views ./views/
 COPY --from=builder /app/public ./public/
 
-# Create data directory and set permissions
-RUN mkdir -p /data && chown portal:portal /data
+# Ensure the non-root user owns the app files and Prisma engines
+RUN mkdir -p /data && chown portal:portal /data && chown -R portal:portal /app
 
 # Switch to non-root user
 USER portal

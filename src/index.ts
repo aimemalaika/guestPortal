@@ -12,6 +12,7 @@ import { config } from './config';
 import { logger } from './logger';
 import { prisma } from './db';
 import { omadaClient, OmadaConnectionError } from './services/omada-client';
+import { macAddressSchema } from './utils/validation';
 
 import { portalRouter } from './routes/portal';
 import { adminRouter } from './routes/admin';
@@ -33,35 +34,44 @@ if (config.TRUST_PROXY) {
 // =============================================================================
 
 // Helmet for security headers
+// The portal is served over plain HTTP on the captive network, so HTTPS-only directives
+// such as upgrade-insecure-requests and HSTS break asset loading when accessed by IP.
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // Needed for Tailwind inline styles
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // May interfere with captive portal detection
+  contentSecurityPolicy: false,
+  hsts: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false,
 }));
 
 // Rate limiting
-const loginLimiter = rateLimit({
+// Every guest reaches the container from the same Docker NAT address, so per-guest
+// limits key on the validated client MAC (or voucher code) rather than the IP.
+const rateLimitBase = {
   windowMs: config.RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
-  max: config.RATE_LIMIT_MAX,
   message: 'Too many login attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+} as const;
+
+const loginLimiter = rateLimit({
+  ...rateLimitBase,
+  max: config.RATE_LIMIT_MAX,
   keyGenerator: (req) => {
-    // Rate limit by IP + MAC (if available)
-    const mac = req.body?.clientMac || req.session?.portalParams?.clientMac || '';
-    return `${req.ip}-${mac}`;
+    const mac = macAddressSchema.safeParse(req.session?.portalParams?.clientMac ?? req.body?.clientMac);
+    if (mac.success) {
+      return `mac:${mac.data}`;
+    }
+    const voucherCode = typeof req.body?.voucherCode === 'string' ? req.body.voucherCode.trim().toUpperCase() : '';
+    return voucherCode ? `voucher:${voucherCode}` : `ip:${req.ip}`;
   },
+});
+
+// Generous ceiling across all guests.
+const globalLoginLimiter = rateLimit({
+  ...rateLimitBase,
+  max: config.RATE_LIMIT_GLOBAL_MAX,
+  keyGenerator: () => 'global',
 });
 
 // =============================================================================
@@ -149,8 +159,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Health checks (no rate limiting)
 app.use('/', healthRouter);
 
-// Portal routes (guest-facing)
-app.use('/portal', loginLimiter, portalRouter);
+// Portal routes (guest-facing); only login submissions are rate limited
+app.post('/portal/login', globalLoginLimiter, loginLimiter);
+app.use('/portal', portalRouter);
 
 // Root redirect to portal (for captive portal detection)
 app.get('/', (req, res) => {

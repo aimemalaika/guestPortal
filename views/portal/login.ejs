@@ -30,6 +30,13 @@
       
       <form method="POST" action="/portal/login" class="login-form">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="clientMac" value="<%= params?.clientMac || '' %>">
+        <input type="hidden" name="apMac" value="<%= params?.apMac || '' %>">
+        <input type="hidden" name="ssidName" value="<%= params?.ssidName || '' %>">
+        <input type="hidden" name="radioId" value="<%= params?.radioId ?? '' %>">
+        <input type="hidden" name="site" value="<%= params?.site || '' %>">
+        <input type="hidden" name="t" value="<%= params?.t || '' %>">
+        <input type="hidden" name="redirectUrl" value="<%= params?.redirectUrl || '' %>">
         
         <% if (authMethods.password || authMethods.voucher) { %>
           <div class="auth-tabs">
@@ -83,8 +90,12 @@
           </div>
         <% } %>
         
-        <button type="submit" class="btn btn-primary" style="background-color: var(--accent-color);">
-          Connect
+        <button type="submit" id="connectBtn" class="btn btn-primary" style="background-color: var(--accent-color);">
+          <span class="btn-text">Connect</span>
+          <span class="btn-loading" style="display:none;">
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span>Connecting...</span>
+          </span>
         </button>
       </form>
       
@@ -121,6 +132,32 @@
     // Trigger initial state
     var checked = document.querySelector('input[name="authMethod"]:checked');
     if (checked) checked.dispatchEvent(new Event('change'));
+
+    // Show immediate feedback when user taps Connect.
+    var loginForm = document.querySelector('.login-form');
+    var connectBtn = document.getElementById('connectBtn');
+    if (loginForm && connectBtn) {
+      loginForm.addEventListener('submit', function(e) {
+        if (connectBtn.dataset.submitting === '1') {
+          return;
+        }
+
+        e.preventDefault();
+        connectBtn.dataset.submitting = '1';
+
+        var textEl = connectBtn.querySelector('.btn-text');
+        var loadingEl = connectBtn.querySelector('.btn-loading');
+        if (textEl) textEl.style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'inline';
+        connectBtn.classList.add('is-loading');
+        connectBtn.disabled = true;
+
+        // Give captive browsers enough time to paint animation before navigation.
+        setTimeout(function() {
+          loginForm.submit();
+        }, 180);
+      }, { passive: false });
+    }
   </script>
 </body>
 </html>

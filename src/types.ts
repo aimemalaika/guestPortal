@@ -16,6 +16,7 @@ declare module 'express-session' {
       ssidName: string;
       radioId: number;
       site?: string;
+      t?: string;
       redirectUrl?: string;
     };
   }

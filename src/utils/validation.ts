@@ -53,16 +53,14 @@ export const portalRedirectSchema = z.object({
   radioId: z.coerce.number().int().min(0).max(2),
   site: z.string().optional(),
   redirectUrl: z.string().url().optional().or(z.literal('')),
-  // Legacy parameter names (v3/v4)
-  ap: macAddressSchema.optional(), // Alternative to apMac
-  ssid: z.string().optional(),     // Alternative to ssidName
   t: z.string().optional(),        // Timestamp
 }).transform((data) => ({
   clientMac: data.clientMac,
-  apMac: data.apMac || data.ap!,
-  ssidName: data.ssidName || data.ssid!,
+  apMac: data.apMac,
+  ssidName: data.ssidName,
   radioId: data.radioId,
   site: data.site,
+  t: data.t,
   redirectUrl: data.redirectUrl || undefined,
 }));
 
@@ -81,6 +79,8 @@ export const guestLoginSchema = z.object({
   apMac: macAddressSchema,
   ssidName: z.string(),
   radioId: z.coerce.number(),
+  site: z.string().optional(),
+  t: z.string().optional(),
   redirectUrl: z.string().optional(),
 }).refine(
   (data) => {
@@ -96,14 +96,43 @@ export type GuestLoginInput = z.infer<typeof guestLoginSchema>;
 /**
  * Schema for voucher creation.
  */
+const optionalNumber = (defaultValue?: number) =>
+  z.preprocess((value) => {
+    if (value === '' || value === null || value === undefined) {
+      return defaultValue;
+    }
+    return Number(value);
+  }, z.number().int().min(0).optional());
+
+const optionalDate = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}, z.date().optional());
+
+const voucherCodeSchema = z.preprocess((value) => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+  return String(value).trim().toUpperCase();
+}, z.string().min(4).max(32).regex(/^[A-Z0-9_-]+$/, {
+  message: 'Voucher code can only contain letters, numbers, hyphens, and underscores',
+}).optional());
+
 export const createVoucherSchema = z.object({
   quantity: z.coerce.number().int().min(1).max(1000).default(1),
   durationMinutes: z.coerce.number().int().min(1).max(525600), // Up to 1 year
-  dataLimitMb: z.coerce.number().int().min(0).optional(),
+  dataLimitMb: optionalNumber(),
   maxDevices: z.coerce.number().int().min(1).max(10).default(1),
   maxUses: z.coerce.number().int().min(1).max(1000).default(1),
-  expiresAt: z.coerce.date().optional(),
-  note: z.string().max(500).optional(),
+  expiresAt: optionalDate,
+  customCode: voucherCodeSchema,
+  note: z.preprocess((value) => (value === '' ? undefined : value), z.string().max(500).optional()),
+}).refine((data) => data.quantity === 1 || !data.customCode, {
+  message: 'Custom voucher codes can only be used when creating a single voucher',
+  path: ['customCode'],
 });
 
 export type CreateVoucherInput = z.infer<typeof createVoucherSchema>;

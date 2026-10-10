@@ -5,19 +5,27 @@ import { config } from './config';
 // Structured Logger
 // =============================================================================
 
+const usePrettyTransport = config.NODE_ENV === 'development' && (() => {
+  try {
+    require.resolve('pino-pretty');
+    return true;
+  } catch {
+    return false;
+  }
+})()
+
 export const logger = pino({
   level: config.LOG_LEVEL,
-  transport:
-    config.NODE_ENV === 'development'
-      ? {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
-          },
-        }
-      : undefined,
+  transport: usePrettyTransport
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined,
   redact: {
     paths: [
       'req.headers.authorization',

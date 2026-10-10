@@ -18,6 +18,8 @@ const envSchema = z.object({
   OMADA_SITE_NAME: z.string().min(1),
   OMADA_OPERATOR_USERNAME: z.string().min(1),
   OMADA_OPERATOR_PASSWORD: z.string().min(1),
+  OMADA_OPENAPI_CLIENT_ID: z.string().min(1),
+  OMADA_OPENAPI_CLIENT_SECRET: z.string().min(1),
 
   // Portal behaviour
   DEFAULT_SESSION_DURATION_MINUTES: z.string().default('60').transform(Number),
@@ -29,6 +31,7 @@ const envSchema = z.object({
 
   // Rate limiting
   RATE_LIMIT_MAX: z.string().default('10').transform(Number),
+  RATE_LIMIT_GLOBAL_MAX: z.string().default('500').transform(Number),
   RATE_LIMIT_WINDOW_MINUTES: z.string().default('15').transform(Number),
 });
 

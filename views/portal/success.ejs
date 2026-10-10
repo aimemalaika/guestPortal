@@ -10,6 +10,94 @@
       --bg-color: <%= settings.backgroundColor %>;
       --accent-color: <%= settings.accentColor %>;
     }
+
+    /* Fallback critical styles for captive mini-browsers that fail to load /css/portal.css */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      line-height: 1.5;
+      color: #1f2937;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .portal-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+
+    .portal-container {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .portal-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .success-card {
+      text-align: center;
+    }
+
+    .success-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1rem;
+      background: #10b981;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+    }
+
+    .portal-card h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      color: #111827;
+    }
+
+    .welcome-text {
+      color: #6b7280;
+      margin: 0 0 1rem;
+    }
+
+    .redirect-info {
+      margin: 1.5rem 0;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent-color, #4f46e5);
+      color: #ffffff;
+      margin-top: 0.75rem;
+    }
+
+    .session-info {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
   </style>
   <% if (redirectUrl) { %>
     <meta http-equiv="refresh" content="<%= settings.redirectDelay %>; url=<%= redirectUrl %>">
@@ -29,6 +117,10 @@
           <a href="<%= redirectUrl %>" class="btn btn-primary" style="background-color: var(--accent-color);">
             Continue Now
           </a>
+        </div>
+      <% } else { %>
+        <div class="redirect-info">
+          <p>You are connected. You can now close this page and continue browsing.</p>
         </div>
       <% } %>
       

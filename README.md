@@ -175,3 +175,8 @@ docker run --rm -v omada-portal-data:/data -v $(pwd):/backup alpine \
 ## License
 
 MIT
+
+
+Username: admin
+Temporary password: JWvojqTR1eSuHTVO25cNLJ7h
+Login: http://192.168.1.20:8080/admin/login

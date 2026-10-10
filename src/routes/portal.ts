@@ -77,13 +77,19 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
   let clientMac: string | undefined;
 
   try {
-    // Get params from session (set during GET /portal)
-    const portalParams = req.session.portalParams;
+    // Prefer params from session; fallback to hidden form fields for captive browsers
+    // that do not persist cookies/session reliably between GET and POST.
+    let portalParams = req.session.portalParams;
     if (!portalParams) {
-      return res.status(400).render('error', {
-        title: 'Session Expired',
-        message: 'Your session has expired. Please reconnect to the WiFi network.',
-      });
+      const bodyParams = portalRedirectSchema.safeParse(req.body);
+      if (!bodyParams.success) {
+        return res.status(400).render('error', {
+          title: 'Session Expired',
+          message: 'Your session has expired. Please reconnect to the WiFi network.',
+        });
+      }
+      portalParams = bodyParams.data;
+      req.session.portalParams = portalParams;
     }
 
     clientMac = portalParams.clientMac;
@@ -95,6 +101,8 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
       apMac: portalParams.apMac,
       ssidName: portalParams.ssidName,
       radioId: portalParams.radioId,
+      site: portalParams.site,
+      t: portalParams.t,
       redirectUrl: portalParams.redirectUrl,
     });
 
@@ -155,7 +163,9 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
         apMac: input.apMac,
         ssidName: input.ssidName,
         radioId: input.radioId,
-        time: sessionDurationMinutes,
+        site: input.site,
+        // extPortal/auth expects duration in milliseconds.
+        time: sessionDurationMinutes * 60 * 1000,
       });
     } catch (error) {
       if (error instanceof OmadaConnectionError) {
@@ -166,13 +176,22 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
         });
       }
       if (error instanceof OmadaAuthError) {
-        logger.error({ error }, 'Omada authorization failed');
+        logger.error({
+          clientMac,
+          errorCode: error.errorCode,
+          errorMessage: error.message,
+        }, 'Omada authorization failed');
         await logAudit('GUEST_LOGIN_FAILED', false, {
           clientMac,
           ip: req.ip,
           reason: error.message,
         });
-        return renderLoginError(req, res, 'Authorization failed. Please try again.');
+        return renderLoginError(
+          req,
+          res,
+          'We could not connect your device to the internet just now. Please try again in a moment.',
+          502,
+        );
       }
       throw error;
     }
@@ -214,28 +233,64 @@ portalRouter.post('/login', async (req: Request, res: Response, next: NextFuncti
       durationMinutes: sessionDurationMinutes,
     });
 
+    const shouldAutoRedirect = !!input.redirectUrl && !isCaptiveProbeUrl(input.redirectUrl);
+
     logger.info({
       clientMac,
       duration: Date.now() - startTime,
       sessionDurationMinutes,
+      redirectUrl: input.redirectUrl,
+      shouldAutoRedirect,
     }, 'Guest authorized successfully');
 
     // Clear session params
     delete req.session.portalParams;
 
-    // Render success page
-    res.render('portal/success', {
-      title: settings.successHeading,
-      settings,
-      redirectUrl: input.redirectUrl || 'https://www.google.com',
-      expiresAt: session.expiresAt,
-    });
+    // Use a dedicated GET endpoint for success so captive mini-browsers reliably
+    // display the page after POST completion.
+    return res.redirect(303, `/portal/success?sid=${encodeURIComponent(session.id)}`);
 
   } catch (error) {
     if (error instanceof ZodError) {
       logger.warn({ errors: error.issues }, 'Validation error');
       return renderLoginError(req, res, 'Invalid input. Please try again.');
     }
+    next(error);
+  }
+});
+
+/**
+ * GET /portal/success
+ * Render success page by looking up the newly created session.
+ */
+portalRouter.get('/success', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const sid = String(req.query.sid || '').trim();
+    if (!sid) {
+      return res.status(400).render('error', {
+        title: 'Invalid Request',
+        message: 'Missing session reference. Please reconnect to the WiFi network.',
+      });
+    }
+
+    const session = await prisma.guestSession.findUnique({ where: { id: sid } });
+    if (!session) {
+      return res.status(404).render('error', {
+        title: 'Session Not Found',
+        message: 'Session not found. Please reconnect to the WiFi network.',
+      });
+    }
+
+    const settings = await getOrCreateSettings();
+    const shouldAutoRedirect = !!session.redirectUrl && !isCaptiveProbeUrl(session.redirectUrl);
+
+    return res.render('portal/success', {
+      title: settings.successHeading,
+      settings,
+      redirectUrl: shouldAutoRedirect ? session.redirectUrl : undefined,
+      expiresAt: session.expiresAt,
+    });
+  } catch (error) {
     next(error);
   }
 });
@@ -302,9 +357,11 @@ async function validateVoucher(code: string): Promise<{
   };
 }
 
-async function renderLoginError(req: Request, res: Response, errorMessage: string) {
+async function renderLoginError(req: Request, res: Response, errorMessage: string, status = 400) {
   const settings = await getOrCreateSettings();
-  const params = req.session.portalParams;
+  const sessionParams = req.session.portalParams;
+  const bodyParams = portalRedirectSchema.safeParse(req.body);
+  const params = sessionParams || (bodyParams.success ? bodyParams.data : undefined);
 
   const authMethods = {
     password: settings.sharedPasswordEnabled && !!settings.sharedPasswordHash,
@@ -312,7 +369,7 @@ async function renderLoginError(req: Request, res: Response, errorMessage: strin
     clickThrough: settings.clickThroughEnabled,
   };
 
-  return res.status(400).render('portal/login', {
+  return res.status(status).render('portal/login', {
     title: settings.welcomeHeading,
     settings,
     authMethods,
@@ -341,5 +398,26 @@ async function logAudit(
     });
   } catch (error) {
     logger.error({ error, action, details }, 'Failed to write audit log');
+  }
+}
+
+function isCaptiveProbeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+
+    // Common captive-portal probe URLs that should not be used for success-page redirect.
+    return (
+      (host.includes('gstatic.com') && path.includes('generate_204')) ||
+      (host.includes('google.com') && path.includes('gen_204')) ||
+      host.includes('msftconnecttest.com') ||
+      host.includes('msftncsi.com') ||
+      host.includes('captive.apple.com') ||
+      host.includes('connectivitycheck.android.com') ||
+      host.includes('detectportal.firefox.com')
+    );
+  } catch {
+    return false;
   }
 }
