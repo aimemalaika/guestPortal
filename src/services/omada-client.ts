@@ -46,7 +46,7 @@ interface ControllerInfo {
 }
 
 interface SiteInfo {
-  id: string;
+  siteId: string;
   name?: string;
 }
 
@@ -313,11 +313,11 @@ export class OmadaClient {
     logger.info({ clientMac }, 'Deauthorizing client');
 
     // Preferred and authoritative flow (OpenAPI v1):
-    // resolve auth record id by MAC, then disconnect by record id.
+    // resolve every active auth record for the MAC, then disconnect each by record id.
     const siteId = await this.resolveSiteId(this.siteName);
-    const authRecordId = await this.findAuthedRecordId(siteId, clientMac);
+    const authRecordIds = await this.findAuthedRecordIds(siteId, clientMac);
 
-    if (!authRecordId) {
+    if (authRecordIds.length === 0) {
       throw new OmadaAuthError(
         'Failed to disconnect client: no matching active auth record found',
         -41018,
@@ -325,8 +325,10 @@ export class OmadaClient {
       );
     }
 
-    await this.disconnectAuthedRecord(siteId, authRecordId);
-    logger.info({ clientMac, siteId, authRecordId }, 'Client disconnected via OpenAPI authed-record endpoint');
+    for (const authRecordId of authRecordIds) {
+      await this.disconnectAuthedRecord(siteId, authRecordId);
+    }
+    logger.info({ clientMac, siteId, authRecordIds }, 'Client disconnected via OpenAPI authed-record endpoint');
   }
 
   /**
@@ -370,8 +372,8 @@ export class OmadaClient {
       throw new Error('Site name or site ID is required to disconnect a client');
     }
 
-    // Omada site IDs are typically 32-char hex strings.
-    if (/^[a-f0-9]{32}$/i.test(candidate)) {
+    // Omada site IDs are 24-char hex strings.
+    if (/^[a-f0-9]{24}$/i.test(candidate)) {
       return candidate;
     }
 
@@ -380,7 +382,41 @@ export class OmadaClient {
     }
 
     const accessToken = await this.getOpenApiToken();
-    const endpoint = `/openapi/v1/${this.controllerId}/sites`;
+    // The sites list requires paging parameters and reports each site's id as `siteId`.
+    const endpoint = `/openapi/v1/${this.controllerId}/sites?page=1&pageSize=1000`;
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `AccessToken=${accessToken}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    const data = await this.parseOpenApiResponse<{ data?: SiteInfo[] }>(response);
+    const match = (data.result?.data ?? []).find((s) =>
+      s.siteId.toLowerCase() === candidate.toLowerCase() ||
+      s.name?.toLowerCase() === candidate.toLowerCase()
+    );
+
+    if (!match) {
+      throw new Error(`Unable to resolve siteId for site '${candidate}' (code: ${data.errorCode})`);
+    }
+
+    return match.siteId;
+  }
+
+  /**
+   * Find the ids of all active auth records associated with a client MAC.
+   */
+  private async findAuthedRecordIds(siteId: string, clientMac: string): Promise<string[]> {
+    if (!this.controllerId) {
+      throw new Error('Client not initialized');
+    }
+
+    const accessToken = await this.getOpenApiToken();
+    const normalizedTarget = this.normalizeMacForCompare(clientMac);
+    const endpoint = `/openapi/v1/${this.controllerId}/sites/${siteId}/hotspot/authed-records?page=1&pageSize=1000`;
+
     const response = await this.fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
       headers: {
@@ -390,64 +426,21 @@ export class OmadaClient {
     });
 
     const data = await this.parseOpenApiResponse(response);
-    const sites = this.collectSiteCandidates(data.result);
-
-    const match = sites.find((s) =>
-      s.id.toLowerCase() === candidate.toLowerCase() ||
-      (s.name && s.name.toLowerCase() === candidate.toLowerCase())
-    );
-
-    if (!match) {
-      throw new Error(`Unable to resolve siteId for site '${candidate}'`);
+    if (data.errorCode !== 0) {
+      throw new OmadaAuthError(
+        `Failed to list authed clients: ${data.msg || 'Unknown error'}`,
+        data.errorCode,
+        clientMac,
+      );
     }
 
-    return match.id;
-  }
-
-  /**
-   * Find the auth record id associated with a client MAC.
-   */
-  private async findAuthedRecordId(siteId: string, clientMac: string): Promise<string | null> {
-    if (!this.controllerId) {
-      throw new Error('Client not initialized');
-    }
-
-    const accessToken = await this.getOpenApiToken();
-    const normalizedTarget = this.normalizeMacForCompare(clientMac);
-    const listEndpoints = [
-      `/openapi/v1/${this.controllerId}/sites/${siteId}/hotspot/authed-records?page=1&pageSize=1000`,
-      `/openapi/v1/${this.controllerId}/sites/${siteId}/hotspot/authed-records?currentPage=1&currentPageSize=1000`,
-    ];
-
-    for (const endpoint of listEndpoints) {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `AccessToken=${accessToken}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      const data = await this.parseOpenApiResponse(response);
-      if (data.errorCode !== 0) {
-        continue;
-      }
-
-      const records = this.collectRecordCandidates(data.result);
-      const match = records.find((record) => {
+    // Disconnected records remain listed with valid: false.
+    return this.collectRecordCandidates(data.result)
+      .filter((record) => {
         const recordMac = this.extractMac(record);
-        return !!recordMac && this.normalizeMacForCompare(recordMac) === normalizedTarget;
-      });
-
-      if (match) {
-        const recordId = this.extractRecordId(match);
-        if (recordId) {
-          return recordId;
-        }
-      }
-    }
-
-    return null;
+        return record.valid !== false && !!recordMac && this.normalizeMacForCompare(recordMac) === normalizedTarget;
+      })
+      .flatMap((record) => this.extractRecordId(record) ?? []);
   }
 
   private async parseOpenApiResponse<T = unknown>(response: Response): Promise<OmadaApiResponse<T>> {
@@ -459,23 +452,6 @@ export class OmadaClient {
         msg: `Failed to parse OpenAPI response (HTTP ${response.status})`,
       };
     }
-  }
-
-  private collectSiteCandidates(result: unknown): SiteInfo[] {
-    const rows = this.collectRecordCandidates(result);
-    return rows
-      .flatMap((row): SiteInfo[] => {
-        const id = typeof row.id === 'string' ? row.id : undefined;
-        const name = typeof row.name === 'string'
-          ? row.name
-          : typeof row.siteName === 'string'
-            ? row.siteName
-            : undefined;
-        if (!id) {
-          return [];
-        }
-        return [{ id, name }];
-      });
   }
 
   private collectRecordCandidates(result: unknown): Array<Record<string, unknown>> {

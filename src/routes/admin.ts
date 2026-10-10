@@ -354,7 +354,7 @@ adminRouter.post('/vouchers/:id/revoke', async (req: Request, res: Response, nex
       try {
         await omadaClient.deauthorizeClient(session.clientMac);
       } catch (error) {
-        logger.warn({ error, clientMac: session.clientMac }, 'Failed to deauthorize client');
+        logger.warn({ err: error, clientMac: session.clientMac }, 'Failed to deauthorize client');
       }
 
       await prisma.guestSession.update({
@@ -419,7 +419,7 @@ adminRouter.post('/sessions/:id/disconnect', async (req: Request, res: Response,
     try {
       await omadaClient.deauthorizeClient(session.clientMac);
     } catch (error) {
-      logger.error({ error, clientMac: session.clientMac }, 'Failed to deauthorize client');
+      logger.error({ err: error, clientMac: session.clientMac }, 'Failed to deauthorize client');
       await logAdminAudit('SESSION_TERMINATED', false, {
         sessionId: id,
         clientMac: session.clientMac,
