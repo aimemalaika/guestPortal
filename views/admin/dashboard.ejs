@@ -15,7 +15,7 @@
     const deltaPct = k.previousConnections > 0 ? Math.round((delta / k.previousConnections) * 100) : null;
     const authTotal = analytics.authMethods.reduce((sum, m) => sum + m.value, 0);
     const authShown = analytics.authMethods.filter((m) => m.value > 0);
-    const seriesVars = ['--series-1', '--series-2', '--series-3'];
+    const seriesVars = ['--series-1', '--series-2', '--series-3', '--series-4', '--series-5', '--series-6', '--series-7', '--series-8'];
     const pct = (value, total) => total > 0 ? Math.round((value / total) * 100) + '%' : '0%';
     const hourLabel = (h) => String(h).padStart(2, '0') + ':00';
   %>
@@ -241,7 +241,7 @@
       </section>
 
       <!-- Operating systems -->
-      <section class="card">
+      <section class="card platform-breakdown">
         <div class="card-head">
           <div>
             <h2>Operating system</h2>
@@ -251,21 +251,25 @@
         <% if (analytics.osTypes.length === 0) { %>
           <div class="chart-empty">No connections in this period</div>
         <% } else { %>
-          <% const osMax = Math.max(1, ...analytics.osTypes.map((item) => item.value)); %>
-          <ul class="hbars">
-            <% analytics.osTypes.forEach((item) => { %>
-              <li class="hbar-row" title="<%= item.label %>: <%= item.value %>">
-                <span class="hbar-label"><%= item.label %></span>
-                <span class="hbar-track"><span class="hbar-fill" style="width: <%= (item.value / osMax) * 100 %>%"></span></span>
-                <span class="hbar-value"><%= item.value %></span>
-              </li>
-            <% }) %>
-          </ul>
+          <% const osTotal = analytics.osTypes.reduce((sum, item) => sum + item.value, 0); %>
+          <div class="donut-wrap">
+            <div class="chart" id="chart-os" role="img" aria-label="Guest connections by operating system"></div>
+            <ul class="donut-legend">
+              <% analytics.osTypes.forEach((item, i) => { %>
+                <li>
+                  <span class="swatch" style="background: var(<%= seriesVars[i % seriesVars.length] %>)"></span>
+                  <%= item.label %>
+                  <strong><%= item.value %></strong>
+                  <small><%= pct(item.value, osTotal) %></small>
+                </li>
+              <% }) %>
+            </ul>
+          </div>
         <% } %>
       </section>
 
       <!-- Device types -->
-      <section class="card">
+      <section class="card platform-breakdown">
         <div class="card-head">
           <div>
             <h2>Device type</h2>
@@ -275,16 +279,20 @@
         <% if (analytics.deviceTypes.length === 0) { %>
           <div class="chart-empty">No connections in this period</div>
         <% } else { %>
-          <% const deviceMax = Math.max(1, ...analytics.deviceTypes.map((item) => item.value)); %>
-          <ul class="hbars">
-            <% analytics.deviceTypes.forEach((item) => { %>
-              <li class="hbar-row" title="<%= item.label %>: <%= item.value %>">
-                <span class="hbar-label"><%= item.label %></span>
-                <span class="hbar-track"><span class="hbar-fill" style="width: <%= (item.value / deviceMax) * 100 %>%"></span></span>
-                <span class="hbar-value"><%= item.value %></span>
-              </li>
-            <% }) %>
-          </ul>
+          <% const deviceTotal = analytics.deviceTypes.reduce((sum, item) => sum + item.value, 0); %>
+          <div class="donut-wrap">
+            <div class="chart" id="chart-device" role="img" aria-label="Guest connections by device type"></div>
+            <ul class="donut-legend">
+              <% analytics.deviceTypes.forEach((item, i) => { %>
+                <li>
+                  <span class="swatch" style="background: var(<%= seriesVars[i % seriesVars.length] %>)"></span>
+                  <%= item.label %>
+                  <strong><%= item.value %></strong>
+                  <small><%= pct(item.value, deviceTotal) %></small>
+                </li>
+              <% }) %>
+            </ul>
+          </div>
         <% } %>
       </section>
 
@@ -326,6 +334,8 @@
     daily: analytics.daily,
     hourly: analytics.hourly,
     authMethods: authShown,
+    osTypes: analytics.osTypes,
+    deviceTypes: analytics.deviceTypes,
   }).replace(/</g, '\\u003c') %></script>
   <script src="/js/dashboard-charts.js" defer></script>
 </body>

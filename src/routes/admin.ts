@@ -403,6 +403,41 @@ adminRouter.get('/sessions', async (req: Request, res: Response, next: NextFunct
   }
 });
 
+adminRouter.get('/device-history', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const requestedPage = Number.parseInt(req.query.page as string, 10);
+    const requestedPageNumber = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+    const pageSize = 50;
+    const now = new Date();
+    const where = {
+      OR: [
+        { status: { not: 'ACTIVE' } },
+        { expiresAt: { lte: now } },
+        { endedAt: { not: null } },
+      ],
+    };
+
+    const total = await prisma.guestSession.count({ where });
+    const totalPages = Math.ceil(total / pageSize);
+    const page = Math.min(requestedPageNumber, Math.max(totalPages, 1));
+    const sessions = await prisma.guestSession.findMany({
+      where,
+      orderBy: [{ endedAt: 'desc' }, { startedAt: 'desc' }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    res.render('admin/device-history', {
+      title: 'Device History',
+      admin: { username: req.session.adminUsername },
+      sessions,
+      pagination: { page, pageSize, total, totalPages },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 adminRouter.post('/sessions/:id/disconnect', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

@@ -734,6 +734,11 @@ a { color: #93c5fd; }
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
+  --series-4: #c084fc;
+  --series-5: #facc15;
+  --series-6: #fb7185;
+  --series-7: #a3e635;
+  --series-8: #22d3ee;
   --chart-grid: rgba(255, 255, 255, 0.07);
   --chart-axis: rgba(255, 255, 255, 0.16);
   --text-secondary: #c3c9d8;
@@ -942,7 +947,24 @@ a { color: #93c5fd; }
 }
 
 .dashboard-page .dash-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.85rem;
+}
+
+.dashboard-page .dash-grid > .card:not(.span-2):not(.span-3):not(.platform-breakdown) {
+  grid-column: span 2;
+}
+
+.dashboard-page .dash-grid > .span-2 {
+  grid-column: span 4;
+}
+
+.dashboard-page .dash-grid > .span-3 {
+  grid-column: 1 / -1;
+}
+
+.dashboard-page .platform-breakdown {
+  grid-column: span 3;
 }
 
 .dashboard-page .card {
@@ -1011,6 +1033,15 @@ a { color: #93c5fd; }
 
   .dashboard-page .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-page .dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-page .dash-grid > .card,
+  .dashboard-page .dash-grid > .card:not(.span-2):not(.span-3):not(.platform-breakdown) {
+    grid-column: auto;
   }
 }
 

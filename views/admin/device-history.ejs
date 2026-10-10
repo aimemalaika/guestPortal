@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Admin</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <%- include('partials/nav', { admin, active: 'device-history' }) %>
+  <% const osLabels = { ANDROID: 'Android', CHROME_OS: 'ChromeOS', IOS: 'iOS', LINUX: 'Linux', MACOS: 'macOS', OTHER: 'Other', WINDOWS: 'Windows' }; %>
+
+  <main class="admin-main">
+    <div class="page-header">
+      <div>
+        <h1>Device History</h1>
+        <p class="page-subtitle"><%= pagination.total.toLocaleString() %> past connections</p>
+      </div>
+      <a href="/admin/sessions" class="btn">Active sessions</a>
+    </div>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Client MAC</th>
+            <th>Operating system</th>
+            <th>Device type</th>
+            <th>SSID</th>
+            <th>Access method</th>
+            <th>Connected</th>
+            <th>Ended</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% sessions.forEach((session) => { %>
+            <tr>
+              <td><code><%= session.clientMac %></code></td>
+              <td><%= session.osType ? (osLabels[session.osType] || 'Other') : 'Unknown' %></td>
+              <td><%= session.deviceType ? session.deviceType.charAt(0) + session.deviceType.slice(1).toLowerCase() : 'Unknown' %></td>
+              <td><%= session.ssidName %></td>
+              <td><%= session.authMethod.replace(/_/g, ' ') %></td>
+              <td><%= session.startedAt.toLocaleString() %></td>
+              <td><%= (session.endedAt || session.expiresAt).toLocaleString() %></td>
+              <td><span class="badge badge-<%= session.status.toLowerCase() %>"><%= session.status %></span></td>
+            </tr>
+          <% }) %>
+          <% if (sessions.length === 0) { %>
+            <tr><td colspan="8" class="text-muted">No past connections yet</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+
+      <% if (pagination.totalPages > 1) { %>
+        <nav class="pagination" aria-label="Device history pages">
+          <% for (let page = 1; page <= pagination.totalPages; page++) { %>
+            <a href="?page=<%= page %>" class="<%= page === pagination.page ? 'active' : '' %>" <%= page === pagination.page ? 'aria-current="page"' : '' %>><%= page %></a>
+          <% } %>
+        </nav>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

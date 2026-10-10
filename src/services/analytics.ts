@@ -15,6 +15,25 @@ const AUTH_METHOD_LABELS: Record<string, string> = {
   CLICK_THROUGH: 'Click-through',
 };
 
+const OS_TYPE_LABELS: Record<string, string> = {
+  ANDROID: 'Android',
+  CHROME_OS: 'ChromeOS',
+  IOS: 'iOS',
+  LINUX: 'Linux',
+  MACOS: 'macOS',
+  OTHER: 'Other',
+  UNKNOWN: 'Unknown',
+  WINDOWS: 'Windows',
+};
+
+const DEVICE_TYPE_LABELS: Record<string, string> = {
+  DESKTOP: 'Desktop',
+  MOBILE: 'Mobile',
+  OTHER: 'Other',
+  TABLET: 'Tablet',
+  UNKNOWN: 'Unknown',
+};
+
 /** Omada radioId -> band. */
 const BAND_LABELS: Record<string, string> = {
   '0': '2.4 GHz',
@@ -147,8 +166,8 @@ export async function getDashboardAnalytics(rangeDays: DashboardRange): Promise<
     hourly,
     authMethods: countBy(sessions, (s) => s.authMethod, AUTH_METHOD_LABELS),
     bands: countBy(sessions, (s) => String(s.radioId), BAND_LABELS),
-    osTypes: countBy(sessions, (s) => s.osType ?? 'UNKNOWN', { UNKNOWN: 'Unknown' }),
-    deviceTypes: countBy(sessions, (s) => s.deviceType ?? 'UNKNOWN', { UNKNOWN: 'Unknown' }),
+    osTypes: countBy(sessions, (s) => s.osType ?? 'UNKNOWN', OS_TYPE_LABELS),
+    deviceTypes: countBy(sessions, (s) => s.deviceType ?? 'UNKNOWN', DEVICE_TYPE_LABELS),
     voucherStatus: VOUCHER_STATUSES.map((status) => ({
       label: status.charAt(0) + status.slice(1).toLowerCase(),
       value: voucherCounts.get(status) ?? 0,

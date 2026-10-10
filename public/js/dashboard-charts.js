@@ -15,6 +15,7 @@
   function token(name) { return rootStyle.getPropertyValue(name).trim(); }
 
   var SERIES = [token('--series-1'), token('--series-2'), token('--series-3')];
+  var PIE_COLORS = [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return token('--series-' + n); });
   var SURFACE = token('--chart-surface');
   var GRID = token('--chart-grid');
   var AXIS = token('--chart-axis');
@@ -276,7 +277,7 @@
   // Donut (sign-in method share)
   // ---------------------------------------------------------------------------
 
-  function donutChart(container, items) {
+  function donutChart(container, items, captionText, valueLabel) {
     container.innerHTML = '';
     var total = sum(items.map(function (it) { return it.value; }));
     if (total === 0) return;
@@ -290,22 +291,27 @@
       var sweep = (it.value / total) * Math.PI * 2;
       var a0 = angle, a1 = angle + sweep;
       angle = a1;
-      var large = sweep > Math.PI ? 1 : 0;
+      var color = PIE_COLORS[i % PIE_COLORS.length];
       var p = function (a) { return (c + r * Math.cos(a)) + ',' + (c + r * Math.sin(a)); };
-      // Arc stroke; the 2px surface-colored caps between segments come from the outer path below
-      var seg = svgEl('path', {
-        d: 'M' + p(a0) + 'A' + r + ',' + r + ' 0 ' + large + ' 1 ' + p(a1),
-        fill: 'none', stroke: SERIES[i], 'stroke-width': thickness,
-      }, svg);
+      var seg;
+      if (items.length === 1) {
+        seg = svgEl('circle', { cx: c, cy: c, r: r, fill: 'none', stroke: color, 'stroke-width': thickness }, svg);
+      } else {
+        var large = sweep > Math.PI ? 1 : 0;
+        seg = svgEl('path', {
+          d: 'M' + p(a0) + 'A' + r + ',' + r + ' 0 ' + large + ' 1 ' + p(a1),
+          fill: 'none', stroke: color, 'stroke-width': thickness,
+        }, svg);
+      }
       seg.addEventListener('pointermove', function (e) {
-        showTooltip(it.label, [{ color: SERIES[i], label: 'Connections', value: it.value + ' (' + Math.round((it.value / total) * 100) + '%)' }], e.clientX, e.clientY);
+        showTooltip(it.label, [{ color: color, label: valueLabel, value: it.value + ' (' + Math.round((it.value / total) * 100) + '%)' }], e.clientX, e.clientY);
       });
       seg.addEventListener('pointerleave', hideTooltip);
     });
 
     // 2px surface gaps at each segment boundary
     angle = -Math.PI / 2;
-    items.forEach(function (it) {
+    if (items.length > 1) items.forEach(function (it) {
       var a = angle;
       angle += (it.value / total) * Math.PI * 2;
       svgEl('line', {
@@ -318,7 +324,7 @@
     var value = svgEl('text', { x: c, y: c + 2, 'text-anchor': 'middle', fill: token('--text'), 'font-size': 26, 'font-weight': 700 }, svg);
     value.textContent = compact(total);
     var caption = svgEl('text', { x: c, y: c + 20, 'text-anchor': 'middle', class: 'chart-axis-label' }, svg);
-    caption.textContent = 'sign-ins';
+    caption.textContent = captionText;
   }
 
   // ---------------------------------------------------------------------------
@@ -341,7 +347,11 @@
       columnChart(hourly, data.hourly, function (h) { return pad2(h) + '–' + pad2(h + 1); }, SERIES[0]);
     }
     var auth = document.getElementById('chart-auth');
-    if (auth) donutChart(auth, data.authMethods);
+    if (auth) donutChart(auth, data.authMethods, 'sign-ins', 'Connections');
+    var os = document.getElementById('chart-os');
+    if (os) donutChart(os, data.osTypes, 'devices', 'Guests');
+    var device = document.getElementById('chart-device');
+    if (device) donutChart(device, data.deviceTypes, 'devices', 'Guests');
   }
 
   renderAll();
